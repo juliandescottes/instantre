@@ -80,6 +80,18 @@
 		return "<li title='jump to line "+(line+1)+"'>" + html + " (line:" + (line+1) + ")</li>";
 	};
 
+	var getCurrentCaretPos = function () {
+		return {
+			begin : textEl.selectionStart,
+			end : textEl.selectionEnd
+		};
+	};
+
+
+	var moveCaret = function (pre, begin, end) {
+		pre.setSelectionRange(begin, typeof end == "undefined" ? begin:end);
+	};
+
 	var refresh = function(){
 		// No refresh if empty regex (TODO:Remove errors)
 		if(input.value.length = 0) return;
@@ -90,11 +102,9 @@
 		saveToLocalStorage(regexAsString, text);
 
 		if (userRe) {
-			var weirdRe = parseRe(
-				regexAsString.replace(/\&/g, "(?:&amp;)").replace(/</g, "(?:&lt;)").replace(/>/g, "(?:&gt;)"));
-			var modifiedText = escape(text).replace(weirdRe,"<span class='lol'>$&</span>");
+			var modifiedText = text.replace(userRe,"_INSTANTRE_BEGIN_$&_INSTANTRE_END_");
 			//console.log(modifiedText);
-			textEl.innerHTML = modifiedText;
+			textEl.innerHTML = escape(modifiedText).replace(/_INSTANTRE_BEGIN_/g, "<span class='editor-match'>").replace(/_INSTANTRE_END_/g, "</span>");
 			var match, matchMarkup, line, results = [], safe = 0;
 			// compute lines outside of main loop (TODO:Caching ?)
 			var lines = text.split("\n");
@@ -130,58 +140,37 @@
 		});
 	};
 
-	if (window.localStorage.instantReSnapshot) {
-		eval("var snippet = " + window.localStorage.instantReSnapshot);
-		load(snippet.re, snippet.text);
-		input.focus();
-	}
-
 	var KEYCODE = {
 		ENTER : 13,
 		TAB : 9
 	};
 
 	var onPreKeydown = function (evt) {
-		if (evt.keyCode == KEYCODE.ENTER) {
-			var caretPos = getCurrentCaretPos(),
-				text = textEl.textContent;
-			console.log(caretPos);
+		var caretPos = getCurrentCaretPos();
+		var	text = textEl.textContent;
+		if (evt.keyCode == KEYCODE.ENTER) {									
 			textEl.textContent = text.substring(0, caretPos.begin) + "\n" + text.substring(caretPos.end);
-			moveCaret(textEl.childNodes[0], caretPos.begin+1);
-
-			evt.preventDefault();
-			return false;
-		} else if (evt.keyCode == KEYCODE.TAB) {
-			var caretPos = getCurrentCaretPos(),
-				text = textEl.textContent;
-			textEl.textContent = text.substring(0, caretPos.begin) + (new Array(5)).join(" ") + text.substring(caretPos.end);
-			moveCaret(textEl.childNodes[0], caretPos.begin+4);
 			
+			refresh();
+			moveCaret(textEl, caretPos.begin+1);
+
 			evt.preventDefault();
-			return false;
+		} else if (evt.keyCode == KEYCODE.TAB) {
+			textEl.textContent = text.substring(0, caretPos.begin) + (new Array(5)).join(" ") + text.substring(caretPos.end);
+			refresh();
+			moveCaret(textEl, caretPos.begin+4);
+
+			evt.preventDefault();
 		}
+		
 	};
 
-	var getCurrentCaretPos = function () {
-		var selection = window.getSelection();
-		return {
-			begin : Math.min(selection.anchorOffset, selection.focusOffset),
-			end : Math.max(selection.anchorOffset, selection.focusOffset)
-		};
+	var onPreKeyup = function (evt) {	
+		if ([KEYCODE.ENTER, KEYCODE.TAB].indexOf(evt.keyCode) != -1) return;
+		var caretPos = getCurrentCaretPos();
+		refresh();
+		moveCaret(textEl, caretPos.begin, caretPos.end);
 	};
-
-	var moveCaret = function (node, begin, end) {
-		var range = document.createRange();
-		var sel = window.getSelection();
-		range.setStart(node, begin);
-		if (end) {
-			range.setStart(node, end);			
-		}
-		range.collapse(true);
-		sel.removeAllRanges();
-		sel.addRange(range);
-	};
-
 	// if using keydown, I don't have the value directly in the input field. 
 	// Would need to either : 
 	// 1 : timeout
@@ -189,5 +178,12 @@
 	input.addEventListener("keyup", refresh);
 	textEl.addEventListener("keydown", onPreKeydown);
 
+	textEl.addEventListener("keyup", onPreKeyup);
 	window.textEl =textEl;
+
+	if (window.localStorage.instantReSnapshot) {
+		eval("var snippet = " + window.localStorage.instantReSnapshot);
+		load(snippet.re, snippet.text);
+		input.focus();
+	}
 })();
