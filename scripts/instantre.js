@@ -56,7 +56,7 @@
 			return re;
 		} catch (e) {
 			input.classList.add("input-error");
-			previewEl.classList.add("out-of-date");
+			previewEl.classList.add("out-of-date");    
 			console.error("invalid regular expression : " + reString);
 		}
 	};
