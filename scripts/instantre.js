@@ -12,12 +12,12 @@
 	editor = ace.edit("text-editor");
 	editor.setTheme("ace/theme/idle_fingers");
         editor.getSession().setMode("ace/mode/text");
-	editor.setFontSize("16px");
+	editor.setFontSize("16px");sdfsdsdf
 	//editor.renderer.setShowGutter(false);
 
-	var key = "apiKey=eHom4izItOoREUUPRPKfBNwzQdDlO-62";
+	var key = "apiKey=eHom4izItOoREUUPRPKfBNwzQdDlO-62";s
 	store = new MongoStore("instant-re", "snippets", key);
-
+   
 	var snippet = {
 		re : "",
 		text : ""
