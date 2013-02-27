@@ -9,6 +9,12 @@
 
 	var editor = null, store = null;
 
+	editor = ace.edit("text-editor");
+	editor.setTheme("ace/theme/idle_fingers");
+        editor.getSession().setMode("ace/mode/text");
+	editor.setFontSize("16px");
+	//editor.renderer.setShowGutter(false);
+
 	var key = "apiKey=eHom4izItOoREUUPRPKfBNwzQdDlO-62";
 	store = new MongoStore("instant-re", "snippets", key);
 
@@ -19,8 +25,9 @@
 
 	var load = function (re, text) {
 		input.value = re;
-		textEl.textContent = text;
+		editor.setValue(text);
 		refresh();
+		editor.moveCursorTo(0,0);
 	};
 
 	var escape = function (text) {
@@ -77,9 +84,10 @@
 			html += "<span class='matched-string'>" + matchedString + "</span>";
 		}
 
-		return "<li title='jump to line "+(line+1)+"'>" + html + " (line:" + (line+1) + ")</li>";
+		return "<li title='jump to line "+(line+1)+"' onclick='scrollToLine("+(line+1)+")'>" + html + " (line:" + (line+1) + ")</li>";
 	};
 
+<<<<<<< HEAD
 	var getCurrentCaretPos = function () {
 		return {
 			begin : textEl.selectionStart,
@@ -91,20 +99,30 @@
 	var moveCaret = function (pre, begin, end) {
 		pre.setSelectionRange(begin, typeof end == "undefined" ? begin:end);
 	};
+=======
+	window.scrollToLine = function (line) {
+		editor.setAnimatedScroll(true);
+		editor.gotoLine(line, 0, true); //test
+	}
+>>>>>>> a09c83d3e83787a6bb7f8ca35ed1db2abe224821
 
 	var refresh = function(){
 		// No refresh if empty regex (TODO:Remove errors)
 		if(input.value.length = 0) return;
 		
 		var regexAsString = input.value;
-		var userRe = parseRe(regexAsString);
-		var text = unescape(textEl.textContent);
+		var userRe = parseRe(input.value);
+		var text = unescape(editor.getValue());
+		
 		saveToLocalStorage(regexAsString, text);
 
 		if (userRe) {
+<<<<<<< HEAD
 			var modifiedText = text.replace(userRe,"_INSTANTRE_BEGIN_$&_INSTANTRE_END_");
 			//console.log(modifiedText);
 			textEl.innerHTML = escape(modifiedText).replace(/_INSTANTRE_BEGIN_/g, "<span class='editor-match'>").replace(/_INSTANTRE_END_/g, "</span>");
+=======
+>>>>>>> a09c83d3e83787a6bb7f8ca35ed1db2abe224821
 			var match, matchMarkup, line, results = [], safe = 0;
 			// compute lines outside of main loop (TODO:Caching ?)
 			var lines = text.split("\n");
