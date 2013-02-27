@@ -121,14 +121,14 @@
 			resultTitle = "No matches";
 		}
 		resultsTitleEl.innerHTML = resultTitle;
-	}
+	};
 
 	var saveToLocalStorage = function (re, text) {
 		window.localStorage.instantReSnapshot = JSON.stringify({
 			"re" : re,
 			"text" : text
 		});
-	}
+	};
 
 	if (window.localStorage.instantReSnapshot) {
 		eval("var snippet = " + window.localStorage.instantReSnapshot);
@@ -136,5 +136,58 @@
 		input.focus();
 	}
 
-	window.addEventListener("keyup", refresh);
+	var KEYCODE = {
+		ENTER : 13,
+		TAB : 9
+	};
+
+	var onPreKeydown = function (evt) {
+		if (evt.keyCode == KEYCODE.ENTER) {
+			var caretPos = getCurrentCaretPos(),
+				text = textEl.textContent;
+			console.log(caretPos);
+			textEl.textContent = text.substring(0, caretPos.begin) + "\n" + text.substring(caretPos.end);
+			moveCaret(textEl.childNodes[0], caretPos.begin+1);
+
+			evt.preventDefault();
+			return false;
+		} else if (evt.keyCode == KEYCODE.TAB) {
+			var caretPos = getCurrentCaretPos(),
+				text = textEl.textContent;
+			textEl.textContent = text.substring(0, caretPos.begin) + (new Array(5)).join(" ") + text.substring(caretPos.end);
+			moveCaret(textEl.childNodes[0], caretPos.begin+4);
+			
+			evt.preventDefault();
+			return false;
+		}
+	};
+
+	var getCurrentCaretPos = function () {
+		var selection = window.getSelection();
+		return {
+			begin : Math.min(selection.anchorOffset, selection.focusOffset),
+			end : Math.max(selection.anchorOffset, selection.focusOffset)
+		};
+	};
+
+	var moveCaret = function (node, begin, end) {
+		var range = document.createRange();
+		var sel = window.getSelection();
+		range.setStart(node, begin);
+		if (end) {
+			range.setStart(node, end);			
+		}
+		range.collapse(true);
+		sel.removeAllRanges();
+		sel.addRange(range);
+	};
+
+	// if using keydown, I don't have the value directly in the input field. 
+	// Would need to either : 
+	// 1 : timeout
+	// 2 : store the RE somewhere else
+	input.addEventListener("keyup", refresh);
+	textEl.addEventListener("keydown", onPreKeydown);
+
+	window.textEl =textEl;
 })();
