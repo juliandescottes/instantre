@@ -9,6 +9,12 @@
 
 	var editor = null, store = null;
 
+	editor = ace.edit("text-editor");
+	editor.setTheme("ace/theme/idle_fingers");
+        editor.getSession().setMode("ace/mode/text");
+	editor.setFontSize("16px");
+	//editor.renderer.setShowGutter(false);
+
 	var key = "apiKey=eHom4izItOoREUUPRPKfBNwzQdDlO-62";
 	store = new MongoStore("instant-re", "snippets", key);
 
@@ -19,8 +25,9 @@
 
 	var load = function (re, text) {
 		input.value = re;
-		textEl.textContent = text;
+		editor.setValue(text);
 		refresh();
+		editor.moveCursorTo(0,0);
 	};
 
 	var escape = function (text) {
@@ -77,24 +84,25 @@
 			html += "<span class='matched-string'>" + matchedString + "</span>";
 		}
 
-		return "<li title='jump to line "+(line+1)+"'>" + html + " (line:" + (line+1) + ")</li>";
+		return "<li title='jump to line "+(line+1)+"' onclick='scrollToLine("+(line+1)+")'>" + html + " (line:" + (line+1) + ")</li>";
 	};
+
+	window.scrollToLine = function (line) {
+		editor.setAnimatedScroll(true);
+		editor.gotoLine(line, 0, true); //test
+	}
 
 	var refresh = function(){
 		// No refresh if empty regex (TODO:Remove errors)
 		if(input.value.length = 0) return;
 		
 		var regexAsString = input.value;
-		var userRe = parseRe(regexAsString);
-		var text = unescape(textEl.textContent);
+		var userRe = parseRe(input.value);
+		var text = unescape(editor.getValue());
+		
 		saveToLocalStorage(regexAsString, text);
 
 		if (userRe) {
-			var weirdRe = parseRe(
-				regexAsString.replace(/\&/g, "(?:&amp;)").replace(/</g, "(?:&lt;)").replace(/>/g, "(?:&gt;)"));
-			var modifiedText = escape(text).replace(weirdRe,"<span class='lol'>$&</span>");
-			//console.log(modifiedText);
-			textEl.innerHTML = modifiedText;
 			var match, matchMarkup, line, results = [], safe = 0;
 			// compute lines outside of main loop (TODO:Caching ?)
 			var lines = text.split("\n");
