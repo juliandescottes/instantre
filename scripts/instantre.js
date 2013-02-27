@@ -52,7 +52,7 @@
 			previewEl.classList.add("out-of-date");
 			console.error("invalid regular expression : " + reString);
 		}
-	};
+	};   
 
 	var getLineForMatch = function (match, lines) {
 		var index = match.index, endIndex = 0;
