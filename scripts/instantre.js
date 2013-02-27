@@ -9,15 +9,9 @@
 
 	var editor = null, store = null;
 
-	editor = ace.edit("text-editor");
-	editor.setTheme("ace/theme/idle_fingers");
-        editor.getSession().setMode("ace/mode/text");
-	editor.setFontSize("16px");sdfsdsdf
-	//editor.renderer.setShowGutter(false);
-
-	var key = "apiKey=eHom4izItOoREUUPRPKfBNwzQdDlO-62";s
+	var key = "apiKey=eHom4izItOoREUUPRPKfBNwzQdDlO-62";
 	store = new MongoStore("instant-re", "snippets", key);
-   
+
 	var snippet = {
 		re : "",
 		text : ""
@@ -25,9 +19,8 @@
 
 	var load = function (re, text) {
 		input.value = re;
-		editor.setValue(text);
+		textEl.textContent = text;
 		refresh();
-		editor.moveCursorTo(0,0);
 	};
 
 	var escape = function (text) {
@@ -56,7 +49,7 @@
 			return re;
 		} catch (e) {
 			input.classList.add("input-error");
-			previewEl.classList.add("out-of-date");    
+			previewEl.classList.add("out-of-date");
 			console.error("invalid regular expression : " + reString);
 		}
 	};
@@ -84,7 +77,7 @@
 			html += "<span class='matched-string'>" + matchedString + "</span>";
 		}
 
-		return "<li title='jump to line "+(line+1)+"' onclick='scrollToLine("+(line+1)+")'>" + html + " (line:" + (line+1) + ")</li>";
+		return "<li title='jump to line "+(line+1)+"'>" + html + " (line:" + (line+1) + ")</li>";
 	};
 
 	var getCurrentCaretPos = function () {
@@ -104,9 +97,8 @@
 		if(input.value.length = 0) return;
 		
 		var regexAsString = input.value;
-		var userRe = parseRe(input.value);
-		var text = unescape(editor.getValue());
-		
+		var userRe = parseRe(regexAsString);
+		var text = unescape(textEl.textContent);
 		saveToLocalStorage(regexAsString, text);
 
 		if (userRe) {
