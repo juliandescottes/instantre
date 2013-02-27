@@ -87,10 +87,17 @@
 		return "<li title='jump to line "+(line+1)+"' onclick='scrollToLine("+(line+1)+")'>" + html + " (line:" + (line+1) + ")</li>";
 	};
 
-	window.scrollToLine = function (line) {
-		editor.setAnimatedScroll(true);
-		editor.gotoLine(line, 0, true); //test
-	}
+	var getCurrentCaretPos = function () {
+		return {
+			begin : textEl.selectionStart,
+			end : textEl.selectionEnd
+		};
+	};
+
+
+	var moveCaret = function (pre, begin, end) {
+		pre.setSelectionRange(begin, typeof end == "undefined" ? begin:end);
+	};
 
 	var refresh = function(){
 		// No refresh if empty regex (TODO:Remove errors)
@@ -103,6 +110,9 @@
 		saveToLocalStorage(regexAsString, text);
 
 		if (userRe) {
+			var modifiedText = text.replace(userRe,"_INSTANTRE_BEGIN_$&_INSTANTRE_END_");
+			//console.log(modifiedText);
+			textEl.innerHTML = escape(modifiedText).replace(/_INSTANTRE_BEGIN_/g, "<span class='editor-match'>").replace(/_INSTANTRE_END_/g, "</span>");
 			var match, matchMarkup, line, results = [], safe = 0;
 			// compute lines outside of main loop (TODO:Caching ?)
 			var lines = text.split("\n");
@@ -129,20 +139,59 @@
 			resultTitle = "No matches";
 		}
 		resultsTitleEl.innerHTML = resultTitle;
-	}
+	};
 
 	var saveToLocalStorage = function (re, text) {
 		window.localStorage.instantReSnapshot = JSON.stringify({
 			"re" : re,
 			"text" : text
 		});
-	}
+	};
+
+	var KEYCODE = {
+		ENTER : 13,
+		TAB : 9
+	};
+
+	var onPreKeydown = function (evt) {
+		var caretPos = getCurrentCaretPos();
+		var	text = textEl.textContent;
+		if (evt.keyCode == KEYCODE.ENTER) {									
+			textEl.textContent = text.substring(0, caretPos.begin) + "\n" + text.substring(caretPos.end);
+			
+			refresh();
+			moveCaret(textEl, caretPos.begin+1);
+
+			evt.preventDefault();
+		} else if (evt.keyCode == KEYCODE.TAB) {
+			textEl.textContent = text.substring(0, caretPos.begin) + (new Array(5)).join(" ") + text.substring(caretPos.end);
+			refresh();
+			moveCaret(textEl, caretPos.begin+4);
+
+			evt.preventDefault();
+		}
+		
+	};
+
+	var onPreKeyup = function (evt) {	
+		if ([KEYCODE.ENTER, KEYCODE.TAB].indexOf(evt.keyCode) != -1) return;
+		var caretPos = getCurrentCaretPos();
+		refresh();
+		moveCaret(textEl, caretPos.begin, caretPos.end);
+	};
+	// if using keydown, I don't have the value directly in the input field. 
+	// Would need to either : 
+	// 1 : timeout
+	// 2 : store the RE somewhere else
+	input.addEventListener("keyup", refresh);
+	textEl.addEventListener("keydown", onPreKeydown);
+
+	textEl.addEventListener("keyup", onPreKeyup);
+	window.textEl =textEl;
 
 	if (window.localStorage.instantReSnapshot) {
 		eval("var snippet = " + window.localStorage.instantReSnapshot);
 		load(snippet.re, snippet.text);
 		input.focus();
 	}
-
-	window.addEventListener("keyup", refresh);
 })();
