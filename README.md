@@ -1,4 +1,0 @@
-instantre
-=========
-
-Instant Regular Expressions
