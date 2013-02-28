@@ -9,6 +9,11 @@
 
 	var worker = null, store = null;
 
+	// create worker from blob
+	var typedArray = [(regexWorker+"").replace(/function \(\) \{/,"").replace(/\}[^}]*$/, "")];
+	var blob = new Blob([typedArray], {type: "text/javascript"}); // pass a useful mime type here
+	var blobUrl = URL.createObjectURL(blob);
+
 	var key = "apiKey=eHom4izItOoREUUPRPKfBNwzQdDlO-62";
 	store = new MongoStore("instant-re", "snippets", key);
 
@@ -52,6 +57,10 @@
 		previewEl.classList.add("out-of-date");
 		// remove highlighting
 		textEl.innerHTML = escape(unescape(textEl.textContent));
+		if (window.getSelection().focusNode == textEl) {
+			console.log(currentPos);
+			moveCaret(textEl, currentPos.begin, currentPos.end);
+		}
 		displayMessage(message);
 	};
 
@@ -111,7 +120,7 @@
 
 			if (worker) killWorker();
 
-			worker = new Worker('scripts/regexProcessor.js');
+			worker = new Worker(blobUrl);
 			worker.onmessage = onWorkerSuccess;
 
 			worker.postMessage({
@@ -123,13 +132,17 @@
 			safetyTimer = window.setTimeout(onWorkerBlock, 3000);
 		}
 	};
-
+	var currentPos={};
 	var onWorkerSuccess = function (event) {
 		var data = event.data;
 		window.clearTimeout(inProgressTimer);
 		window.clearTimeout(safetyTimer);
 		resultsEl.innerHTML = data.resultsHTML;
 		textEl.innerHTML = data.textHTML;
+		if (window.getSelection().focusNode == textEl) {
+			console.log(currentPos);
+			moveCaret(textEl, currentPos.begin, currentPos.end);
+		}
 		updateResultsTitle(data.resultsLength);
 
 		// ERROR/PROGRESS -> SUCCESS
@@ -182,12 +195,14 @@
 		if (evt.keyCode == KEYCODE.ENTER) {									
 			textEl.textContent = text.substring(0, caretPos.begin) + "\n" + text.substring(caretPos.end);
 			
+			currentPos = {begin : caretPos.begin+1, end : caretPos.begin+1};
 			refresh();
 			moveCaret(textEl, caretPos.begin+1);
 
 			evt.preventDefault();
 		} else if (evt.keyCode == KEYCODE.TAB) {
 			textEl.textContent = text.substring(0, caretPos.begin) + (new Array(5)).join(" ") + text.substring(caretPos.end);
+			currentPos = {begin : caretPos.begin+4, end : caretPos.begin+4};
 			refresh();
 			moveCaret(textEl, caretPos.begin+4);
 
@@ -199,8 +214,8 @@
 	var onPreKeyup = function (evt) {	
 		if ([KEYCODE.ENTER, KEYCODE.TAB].indexOf(evt.keyCode) != -1) return;
 		var caretPos = getCurrentCaretPos();
+		currentPos = {begin : caretPos.begin, end : caretPos.end};
 		refresh();
-		moveCaret(textEl, caretPos.begin, caretPos.end);
 	};
 	// if using keydown, I don't have the value directly in the input field. 
 	// Would need to either : 
