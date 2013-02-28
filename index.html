@@ -17,7 +17,7 @@
         <div class="head">
             <div class="head-item head-logo">iR</div>
         	<div class="head-item head-button"></div>
-            <div>
+            <div style="z-index:10">
             	<div class="content-wrapper">
             		<input 
                      spellcheck="false" autocomplete="false"
@@ -26,8 +26,9 @@
 	                class="head-item"
 	        		id="regexp-input" />
             	</div>
-            </div> 
+            </div>
         </div>
+        <div id="head-drop-message" class="head-drop-message head-drop-message-hidden">Sorry, couldn't process your regular expression</div>
         <pre class="content" id="text-editor" contenteditable spellcheck="false" autocomplete="false">Text to parse goes here</pre>
     </div>
     <div class="preview" id="results-preview">

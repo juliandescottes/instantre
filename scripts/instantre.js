@@ -1,13 +1,13 @@
 (function () {
 	var MAX_RESULTS = 1000;
+	var $ = function (id) {return document.getElementById(id);};
+	var input = $("regexp-input"),
+		textEl = $("text-editor"),
+		resultsEl = $("matches-list"),
+		previewEl = $("results-preview"),
+		resultsTitleEl = $("matches-header");
 
-	var input = document.getElementById("regexp-input"),
-		textEl = document.getElementById("text-editor"),
-		resultsEl = document.getElementById("matches-list"),
-		previewEl = document.getElementById("results-preview"),
-		resultsTitleEl = document.getElementById("matches-header");
-
-	var editor = null, store = null;
+	var worker = null, store = null;
 
 	var key = "apiKey=eHom4izItOoREUUPRPKfBNwzQdDlO-62";
 	store = new MongoStore("instant-re", "snippets", key);
@@ -33,6 +33,34 @@
 		return text.replace(/\&gt;/g, ">").replace(/\&lt;/g, "<").replace(/\&amp;/g, "&");
 	};
 
+	var messageHideTimer;
+	var displayMessage = function (message) {
+		$("head-drop-message").innerHTML = escape(message);
+		$("head-drop-message").classList.remove("head-drop-message-hidden");
+		
+		window.clearTimeout(messageHideTimer);
+		messageHideTimer = window.setTimeout(hideMessage, 4000);
+	};
+
+	var hideMessage = function () {
+		window.clearTimeout(messageHideTimer);
+		$("head-drop-message").classList.add("head-drop-message-hidden");
+	}
+
+	var gotoErrorState = function (message) {
+		input.classList.add("input-error");
+		previewEl.classList.add("out-of-date");
+		// remove highlighting
+		textEl.innerHTML = escape(unescape(textEl.textContent));
+		displayMessage(message);
+	};
+
+	var leaveErrorState = function () {
+		input.classList.remove("input-error");
+		previewEl.classList.remove("out-of-date");
+		hideMessage();
+	};
+
 	var parseRe = function (reString) {
 		// force re to be global
 		if(/^\/.*\/(g|i)*\s*$/.test(reString)) {
@@ -44,40 +72,11 @@
 		}
 		try {
 			eval("var re = " + reString);	
-			input.classList.remove("input-error");
-			previewEl.classList.remove("out-of-date");
+			leaveErrorState();
 			return re;
 		} catch (e) {
-			input.classList.add("input-error");
-			previewEl.classList.add("out-of-date");
-			console.error("invalid regular expression : " + reString);
+			gotoErrorState("invalid regular expression : " + reString);
 		}
-	};
-
-	var getLineForMatch = function (match, lines) {
-		var index = match.index, endIndex = 0;
-		for (var i = 0 ; i < lines.length ; i++) {
-			endIndex += lines[i].length+1;
-			if (index < endIndex) {
-				return i;
-			}
-		}
-	}
-
-	var createMarkupForMatch = function (match, line) {
-		var html = "";
-		var matchedString = escape(match[0]);
-		if(match.length > 1) {
-			var groups = match.splice(1);
-			for (var i = 0 ; i < groups.length ; i++) {
-				html += "<span class='matched-group'>" + escape(groups[i]) + "</span>";
-			}
-			html += "found in " + "<span class='matched-string'>" + matchedString + "</span>"; 
-		} else {
-			html += "<span class='matched-string'>" + matchedString + "</span>";
-		}
-
-		return "<li title='jump to line "+(line+1)+"'>" + html + " (line:" + (line+1) + ")</li>";
 	};
 
 	var getCurrentCaretPos = function () {
@@ -87,11 +86,16 @@
 		};
 	};
 
-
 	var moveCaret = function (pre, begin, end) {
 		pre.setSelectionRange(begin, typeof end == "undefined" ? begin:end);
 	};
 
+	var killWorker = function () {
+		worker.terminate();
+		worker = null;
+	};
+
+	var safetyTimer,inProgressTimer;
 	var refresh = function(){
 		// No refresh if empty regex (TODO:Remove errors)
 		if(input.value.length = 0) return;
@@ -102,21 +106,48 @@
 		saveToLocalStorage(regexAsString, text);
 
 		if (userRe) {
-			var modifiedText = text.replace(userRe,"_INSTANTRE_BEGIN_$&_INSTANTRE_END_");
-			//console.log(modifiedText);
-			textEl.innerHTML = escape(modifiedText).replace(/_INSTANTRE_BEGIN_/g, "<span class='editor-match'>").replace(/_INSTANTRE_END_/g, "</span>");
-			var match, matchMarkup, line, results = [], safe = 0;
-			// compute lines outside of main loop (TODO:Caching ?)
-			var lines = text.split("\n");
-			while (match = userRe.exec(text)) {
-				if(safe++>MAX_RESULTS) break;
-				line = getLineForMatch(match, lines);
-				matchMarkup = createMarkupForMatch(match, line);
-				results.push(matchMarkup);
-			}
-			resultsEl.innerHTML = "<ul>" + results.join("") + "</ul>";	
-			updateResultsTitle(results.length);
+			window.clearTimeout(inProgressTimer);
+			window.clearTimeout(safetyTimer);
+
+			if (worker) killWorker();
+
+			worker = new Worker('scripts/regexProcessor.js');
+			worker.onmessage = onWorkerSuccess;
+
+			worker.postMessage({
+				userRe : userRe,
+				text : text
+			});
+
+			inProgressTimer = window.setTimeout(displayInProgressIndicator, 100);
+			safetyTimer = window.setTimeout(onWorkerBlock, 3000);
 		}
+	};
+
+	var onWorkerSuccess = function (event) {
+		var data = event.data;
+		window.clearTimeout(inProgressTimer);
+		window.clearTimeout(safetyTimer);
+		resultsEl.innerHTML = data.resultsHTML;
+		textEl.innerHTML = data.textHTML;
+		updateResultsTitle(data.resultsLength);
+
+		// ERROR/PROGRESS -> SUCCESS
+		input.classList.remove("in-progress");
+		hideMessage();
+	};
+
+	var onWorkerBlock = function () {
+		window.clearTimeout(inProgressTimer);
+		killWorker();
+		input.classList.remove("in-progress");
+		gotoErrorState("ERROR : Could not process regular expression");
+	};
+
+	var displayInProgressIndicator = function () {
+		// SUCCESS/ERROR -> PROGRESS
+		input.classList.add("in-progress");
+		displayMessage("Processing regular expression");
 	};
 
 	var updateResultsTitle = function (resultsCount) {
