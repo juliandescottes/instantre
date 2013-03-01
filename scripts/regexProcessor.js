@@ -37,16 +37,42 @@ window.regexWorker = function () {
 		return "<li title='jump to line "+(line+1)+"'>" + html + " (line:" + (line+1) + ")</li>";
 	};
 
+	/*
+	 * Tokens used to surround text to highlight
+	 */
+	var TOKEN_BEGIN = "_INSTANTRE_BEGIN_",
+		TOKEN_END = "_INSTANTRE_END_";
+
+	var RE_BEGIN = new RegExp(TOKEN_BEGIN, "g"),
+		RE_END = new RegExp(TOKEN_END, "g");
+
+
+	var highlightText = function (text, re) {
+		var tokenizedText = text.replace(re, processNotEmpty);
+		return escape(tokenizedText).replace(RE_BEGIN, "<span class='editor-match'>").replace(RE_END, "</span>");
+	};
+	/**
+	 * string.replace replacer. Will surround non empty matches with tokens 
+	 */
+	var processNotEmpty = function (match) {
+		// filter out empty matches
+		if (match.length > 0) {
+			return TOKEN_BEGIN+match+TOKEN_END;
+		} else {
+			return match;
+		}
+	};
+
 	self.onmessage = function(event) {
-		var userRe = event.data.userRe;
-		var text = event.data.text;
-		var modifiedText = text.replace(userRe,"_INSTANTRE_BEGIN_$&_INSTANTRE_END_");
-		var textHTML = escape(modifiedText).replace(/_INSTANTRE_BEGIN_/g, "<span class='editor-match'>").replace(/_INSTANTRE_END_/g, "</span>");
+		var userRe = event.data.userRe,
+			text = event.data.text;
+
 		var match, matchMarkup, line, results = [], safe = 0;
 		// compute lines outside of main loop (TODO:Caching ?)
 		var lines = text.split("\n");
 		while (match = userRe.exec(text)) {
 			if(safe++>MAX_RESULTS) break;
+			//if (match[0].length == 0) continue;
 			line = getLineForMatch(match, lines);
 			matchMarkup = createMarkupForMatch(match, line);
 			results.push(matchMarkup);
@@ -54,7 +80,7 @@ window.regexWorker = function () {
 		var resultsHTML = "<ul>" + results.join("") + "</ul>";	
 		self.postMessage({
 			resultsHTML : resultsHTML,
-			textHTML : textHTML,
+			textHTML : highlightText(text, userRe),
 			resultsLength : results.length
 		});
 	};
