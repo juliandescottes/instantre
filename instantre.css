@@ -138,14 +138,18 @@ body {
     font-family : Consolas, Monaco, monospace;
     color : grey;
 
-    -webkit-transition : box-shadow 0.3s;
-    -moz-transition : box-shadow 0.3s;
+    -webkit-transition : box-shadow 0.2s, background-color 0.5s;
+    -moz-transition : box-shadow 0.2s, background-color 0.5s;
 }
 
 #regexp-input.in-progress {
     background-image : url(pacman-loader.gif);
     background-repeat: no-repeat;
     background-position: 99% center;
+}
+
+#regexp-input.input-error {
+    background-color : rgb(255, 200, 184);
 }
 
 ::-webkit-input-placeholder { /* WebKit browsers */
@@ -165,9 +169,6 @@ body {
     box-shadow : inset 0 0px 1px 3px grey;
 }
 
-#regexp-input.input-error {
-    box-shadow : inset 0 0px 1px 3px rgb(218, 0, 0);
-}
 
 .editor-match {
     color : red;
