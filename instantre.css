@@ -191,6 +191,10 @@ body {
     margin:-1px;
 }
 
+.editor-match-fast {
+    color : red;
+}
+
 .head-drop-message {
     position : absolute;
     z-index: 5;

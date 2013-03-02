@@ -44,17 +44,23 @@ window.regexWorker = function () {
 		TOKEN_END = "_INSTANTRE_END_";
 
 	var RE_BEGIN = new RegExp(TOKEN_BEGIN, "g"),
-		RE_END = new RegExp(TOKEN_END, "g");
+		RE_END = new RegExp(TOKEN_END, "g"),
+		JOINT_TOKENS = new RegExp(TOKEN_END+TOKEN_BEGIN, "g");
 
 
-	var highlightText = function (text, re) {
-		var tokenizedText = text.replace(re, processNotEmpty);
-		return escape(tokenizedText).replace(RE_BEGIN, "<span class='editor-match'>").replace(RE_END, "</span>");
+	var highlightText = function (text, re, tooManyResults) {
+		var tokenizedText = text.replace(re, tokenReplacer);
+		var cssClass = tooManyResults ? "editor-match-fast" : "editor-match"
+		if (tooManyResults) {
+			// merge everything ...
+			tokenizedText = tokenizedText.replace(JOINT_TOKENS, "");
+		}
+		return escape(tokenizedText).replace(RE_BEGIN, "<span class='"+cssClass+"'>").replace(RE_END, "</span>");
 	};
 	/**
 	 * string.replace replacer. Will surround non empty matches with tokens 
 	 */
-	var processNotEmpty = function (match) {
+	var tokenReplacer = function (match) {
 		// filter out empty matches
 		if (match.length > 0) {
 			return TOKEN_BEGIN+match+TOKEN_END;
@@ -80,7 +86,7 @@ window.regexWorker = function () {
 		var resultsHTML = "<ul>" + results.join("") + "</ul>";	
 		self.postMessage({
 			resultsHTML : resultsHTML,
-			textHTML : highlightText(text, userRe),
+			textHTML : highlightText(text, userRe, results.length >= MAX_RESULTS),
 			resultsLength : results.length
 		});
 	};
