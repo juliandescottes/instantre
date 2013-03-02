@@ -94,6 +94,8 @@ body {
     margin : 0;
     top : 60px;
     left :20px;
+    padding-left : 15px;
+    padding : 10px;
     width : auto;
     right :0;
     bottom : 0;
@@ -184,6 +186,9 @@ body {
 
 .editor-match {
     color : red;
+    border : 1px dotted wheat;
+    border-radius : 3px;
+    margin:-1px;
 }
 
 .head-drop-message {

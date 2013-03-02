@@ -50,19 +50,17 @@
 	var hideMessage = function () {
 		window.clearTimeout(messageHideTimer);
 		$("head-drop-message").classList.add("head-drop-message-hidden");
-	}
+	};
 
 	var unhighlight = function () {
-		// remove highlighting
-		textEl.innerHTML = escape(unescape(textEl.textContent));
-	}
+		updateEditor(escape(unescape(textEl.textContent)));
+	};
 
 	var gotoErrorState = function (message) {
 		input.classList.add("input-error");
 		previewEl.classList.add("out-of-date");
 		unhighlight();
 		if (window.getSelection().focusNode == textEl) {
-			console.log(currentPos);
 			moveCaret(textEl, currentPos.begin, currentPos.end);
 		}
 		displayMessage(message);
@@ -108,8 +106,22 @@
 		worker = null;
 	};
 
+	var updateEditor = function (html) {
+		var hadFocus = textEl.contains(window.getSelection().focusNode);
+		var scroll = {top:textEl.scrollTop};
+		var p = textEl.parentNode;
+		p.removeChild(textEl);
+		textEl.innerHTML = html;
+		p.appendChild(textEl)
+		textEl.scrollTop = scroll.top;
+		if (hadFocus) {
+			moveCaret(textEl, currentPos.begin, currentPos.end);
+		}
+	};
+
 	var safetyTimer, inProgressTimer;
-	var refresh = function(){
+	var refresh = function(forceText){
+		if (!forceText && !hasChanged()) return;
 		saveToLocalStorage();
 		// No refresh if empty regex (TODO:Remove errors)
 		if(input.value.length == 0) {
@@ -118,8 +130,7 @@
 			unhighlight();
 		} else {
 			var userRe = parseRe(input.value);
-			var text = unescape(textEl.textContent);
-
+			var text = unescape(forceText || textEl.textContent);
 			if (userRe) {
 				window.clearTimeout(inProgressTimer);
 				window.clearTimeout(safetyTimer);
@@ -145,11 +156,7 @@
 		window.clearTimeout(inProgressTimer);
 		window.clearTimeout(safetyTimer);
 		resultsEl.innerHTML = data.resultsHTML;
-		textEl.innerHTML = data.textHTML;
-		if (window.getSelection().focusNode == textEl) {
-			console.log(currentPos);
-			moveCaret(textEl, currentPos.begin, currentPos.end);
-		}
+		updateEditor(data.textHTML);
 		updateResultsTitle(data.resultsLength);
 
 		// ERROR/PROGRESS -> SUCCESS
@@ -184,49 +191,66 @@
 		resultsTitleEl.innerHTML = resultTitle;
 	};
 
-	var saveToLocalStorage = function () {
+	var encodeCurrentSnippet = function () {
 		var text = unescape(textEl.textContent);
-		window.localStorage.instantReSnapshot = JSON.stringify({
+		var strSnippet = JSON.stringify({
 			"re" : input.value,
 			"text" : text
 		});
+		return strSnippet;
 	};
 
-	var KEYCODE = {
+	var saveToLocalStorage = function () {
+		window.localStorage.instantReSnapshot = encodeCurrentSnippet()
+	};
+	var cachedSnippet;
+	var hasChanged = function () {
+		var currentSnippet = encodeCurrentSnippet();
+		if (currentSnippet != cachedSnippet) {
+			cachedSnippet = currentSnippet;
+			return true;
+		} else {
+			return false;
+		}
+	};
+
+	var SPECIAL = {
 		ENTER : 13,
 		TAB : 9
 	};
 
-	var onPreKeydown = function (evt) {
-		var caretPos = getCurrentCaretPos();
-		var	text = textEl.textContent;
-		if (evt.keyCode == KEYCODE.ENTER) {									
-			textEl.textContent = text.substring(0, caretPos.begin) + "\n" + text.substring(caretPos.end);
-			
-			currentPos = {begin : caretPos.begin+1, end : caretPos.begin+1};
-			refresh();
-			moveCaret(textEl, caretPos.begin+1);
-
-			evt.preventDefault();
-		} else if (evt.keyCode == KEYCODE.TAB) {
-			textEl.textContent = text.substring(0, caretPos.begin) + (new Array(5)).join(" ") + text.substring(caretPos.end);
-			currentPos = {begin : caretPos.begin+4, end : caretPos.begin+4};
-			refresh();
-			moveCaret(textEl, caretPos.begin+4);
-
-			evt.preventDefault();
+	var isSpecialKey = function (evt) {
+		for (var i in SPECIAL) {
+			if (evt.keyCode == SPECIAL[i]) {
+				return true;
+			}
 		}
-		
+		return false;
+	};
+
+	var onPreKeydown = function (evt) {
+		if (isSpecialKey(evt)) {
+			evt.preventDefault();	
+			var caret = getCurrentCaretPos();
+			var	text = textEl.textContent;
+			if (evt.keyCode == SPECIAL.ENTER) {	
+				text = text.substring(0, caret.begin) + "\n" + text.substring(caret.end);
+				currentPos = {begin : caret.begin+1, end : caret.begin+1};
+			} else if (evt.keyCode == SPECIAL.TAB) {
+				text = text.substring(0, caret.begin) + (new Array(5)).join(" ") + text.substring(caret.end);
+				currentPos = {begin : caret.begin+4, end : caret.begin+4};
+			}
+			refresh(text);
+		}
 	};
 
 	var onPreKeyup = function (evt) {	
-		if ([KEYCODE.ENTER, KEYCODE.TAB].indexOf(evt.keyCode) != -1) return;
-		var caretPos = getCurrentCaretPos();
-		currentPos = {begin : caretPos.begin, end : caretPos.end};
-		refresh();
+		if (!isSpecialKey(evt)) {
+			currentPos = getCurrentCaretPos();
+			refresh();	
+		}
 	};
 	
-
 	var clear = function () {
 		if (confirm("Reset your workspace ?")){
 			load("", "");
@@ -236,7 +260,7 @@
 	// Would need to either : 
 	// 1 : timeout
 	// 2 : store the RE somewhere else
-	input.addEventListener("keyup", refresh);
+	input.addEventListener("keyup", function () {refresh()});
 	textEl.addEventListener("keydown", onPreKeydown);
 	textEl.addEventListener("keyup", onPreKeyup);
 	document.getElementsByClassName("head-logo")[0].addEventListener("click", clear);
