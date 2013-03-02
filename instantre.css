@@ -29,7 +29,8 @@ body {
 
 .head, .content {
     width : 100%;
-    background:grey;
+    background-color : grey;
+    background:url(texture-grey.png);
     position : absolute;
 }
 
@@ -56,13 +57,23 @@ body {
 
 .head .head-logo {
     float: left;
+    width: 60px;
+    height: 60px;
+
+    cursor : pointer;
+
+    color:white;
     font-size:32px;
     font-weight:bold;
-    color:white;
-    text-shadow : 0 -1px 0 black;
-    width: 60px;
     text-align: center;
-    height: 60px;
+    text-shadow : 0 -1px 0 black;
+
+    -webkit-transition : background-color 0.2s;
+    -moz-transition : background-color 0.2s;
+}
+
+.head .head-logo:hover {
+    background-color : rgba(255,255,255,0.2)
 }
 
 .head .head-button {
@@ -71,7 +82,8 @@ body {
 }
 .content {
     top:60px;
-    background:#353637;
+    background-color:#353637;
+    background: url(texture-charcoal.png);
     bottom : 0;
 }
 

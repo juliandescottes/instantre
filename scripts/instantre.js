@@ -52,11 +52,15 @@
 		$("head-drop-message").classList.add("head-drop-message-hidden");
 	}
 
+	var unhighlight = function () {
+		// remove highlighting
+		textEl.innerHTML = escape(unescape(textEl.textContent));
+	}
+
 	var gotoErrorState = function (message) {
 		input.classList.add("input-error");
 		previewEl.classList.add("out-of-date");
-		// remove highlighting
-		textEl.innerHTML = escape(unescape(textEl.textContent));
+		unhighlight();
 		if (window.getSelection().focusNode == textEl) {
 			console.log(currentPos);
 			moveCaret(textEl, currentPos.begin, currentPos.end);
@@ -104,32 +108,35 @@
 		worker = null;
 	};
 
-	var safetyTimer,inProgressTimer;
+	var safetyTimer, inProgressTimer;
 	var refresh = function(){
+		saveToLocalStorage();
 		// No refresh if empty regex (TODO:Remove errors)
-		if(input.value.length = 0) return;
-		
-		var regexAsString = input.value;
-		var userRe = parseRe(regexAsString);
-		var text = unescape(textEl.textContent);
-		saveToLocalStorage(regexAsString, text);
+		if(input.value.length == 0) {
+			resultsEl.innerHTML = "";
+			updateResultsTitle(0)
+			unhighlight();
+		} else {
+			var userRe = parseRe(input.value);
+			var text = unescape(textEl.textContent);
 
-		if (userRe) {
-			window.clearTimeout(inProgressTimer);
-			window.clearTimeout(safetyTimer);
+			if (userRe) {
+				window.clearTimeout(inProgressTimer);
+				window.clearTimeout(safetyTimer);
 
-			if (worker) killWorker();
+				if (worker) killWorker();
 
-			worker = new Worker(blobUrl);
-			worker.onmessage = onWorkerSuccess;
+				worker = new Worker(blobUrl);
+				worker.onmessage = onWorkerSuccess;
 
-			worker.postMessage({
-				userRe : userRe,
-				text : text
-			});
+				worker.postMessage({
+					userRe : userRe,
+					text : text
+				});
 
-			inProgressTimer = window.setTimeout(displayInProgressIndicator, 100);
-			safetyTimer = window.setTimeout(onWorkerBlock, 3000);
+				inProgressTimer = window.setTimeout(displayInProgressIndicator, 100);
+				safetyTimer = window.setTimeout(onWorkerBlock, 3000);
+			}
 		}
 	};
 	var currentPos={};
@@ -177,9 +184,10 @@
 		resultsTitleEl.innerHTML = resultTitle;
 	};
 
-	var saveToLocalStorage = function (re, text) {
+	var saveToLocalStorage = function () {
+		var text = unescape(textEl.textContent);
 		window.localStorage.instantReSnapshot = JSON.stringify({
-			"re" : re,
+			"re" : input.value,
 			"text" : text
 		});
 	};
@@ -217,15 +225,21 @@
 		currentPos = {begin : caretPos.begin, end : caretPos.end};
 		refresh();
 	};
+	
+
+	var clear = function () {
+		if (confirm("Reset your workspace ?")){
+			load("", "");
+		}
+	};
 	// if using keydown, I don't have the value directly in the input field. 
 	// Would need to either : 
 	// 1 : timeout
 	// 2 : store the RE somewhere else
 	input.addEventListener("keyup", refresh);
 	textEl.addEventListener("keydown", onPreKeydown);
-
 	textEl.addEventListener("keyup", onPreKeyup);
-	window.textEl =textEl;
+	document.getElementsByClassName("head-logo")[0].addEventListener("click", clear);
 
 	if (window.localStorage.instantReSnapshot) {
 		eval("var snippet = " + window.localStorage.instantReSnapshot);
