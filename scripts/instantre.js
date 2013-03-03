@@ -2,29 +2,20 @@
 	var MAX_RESULTS = 1000;
 	var $ = function (id) {return document.getElementById(id);};
 	var input = $("regexp-input"),
-		textEl = $("text-editor"),
+		editorEl = $("text-editor"),
 		resultsEl = $("matches-list"),
 		previewEl = $("results-preview"),
 		resultsTitleEl = $("matches-header");
 
-	var worker = null, store = null;
-
-	// create worker from blob
-	var typedArray = [(regexWorker+"").replace(/function \(\) \{/,"").replace(/\}[^}]*$/, "")];
-	var blob = new Blob([typedArray], {type: "text/javascript"}); // pass a useful mime type here
-	var blobUrl = URL.createObjectURL(blob);
-
-	var key = "apiKey=eHom4izItOoREUUPRPKfBNwzQdDlO-62";
-	store = new MongoStore("instant-re", "snippets", key);
-
-	var snippet = {
+	var worker = null,
+		snippet = {
 		re : "",
 		text : ""
 	};
 
 	var load = function (re, text) {
 		input.value = re;
-		textEl.textContent = text;
+		editorEl.textContent = text;
 		refresh();
 	};
 
@@ -52,16 +43,20 @@
 		$("head-drop-message").classList.add("head-drop-message-hidden");
 	};
 
-	var unhighlight = function () {
-		updateEditor(escape(unescape(textEl.textContent)));
+	var unhighlight = function (forceText) {
+		updateEditor(escape(unescape(forceText || editorEl.textContent)));
+	};
+
+	var editorHasFocus = function () {
+		return editorEl.contains(window.getSelection().focusNode);
 	};
 
 	var gotoErrorState = function (message) {
 		input.classList.add("input-error");
 		previewEl.classList.add("out-of-date");
 		unhighlight();
-		if (window.getSelection().focusNode == textEl) {
-			moveCaret(textEl, currentPos.begin, currentPos.end);
+		if (editorHasFocus()) {
+			moveEditorCaret(currentPos.begin, currentPos.end);
 		}
 		displayMessage(message);
 	};
@@ -92,34 +87,37 @@
 
 	var getCurrentCaretPos = function () {
 		return {
-			begin : textEl.selectionStart,
-			end : textEl.selectionEnd
+			begin : editorEl.selectionStart,
+			end : editorEl.selectionEnd
 		};
 	};
 
-	var moveCaret = function (pre, begin, end) {
-		pre.setSelectionRange(begin, typeof end == "undefined" ? begin:end);
+	var moveEditorCaret = function (begin, end) {
+		editorEl.setSelectionRange(begin, typeof end == "undefined" ? begin:end);
 	};
 
 	window.jumpToIndex = function (index) {
-		moveCaret(textEl, index);
+		moveEditorCaret(index);
 	};
 
-	var killWorker = function () {
-		worker.terminate();
-		worker = null;
+	var terminateCurrentWorker = function () {
+		if (worker) worker.terminate();
+	};
+
+	var offDomReplaceHTML = function (el, html) {
+		var p = el.parentNode;
+		p.removeChild(el);
+		el.innerHTML = html;
+		p.appendChild(el)
 	};
 
 	var updateEditor = function (html) {
-		var hadFocus = textEl.contains(window.getSelection().focusNode);
-		var scroll = {top:textEl.scrollTop};
-		var p = textEl.parentNode;
-		p.removeChild(textEl);
-		textEl.innerHTML = html;
-		p.appendChild(textEl)
-		textEl.scrollTop = scroll.top;
+		var hadFocus = editorHasFocus();
+		var scroll = {top:editorEl.scrollTop};
+		offDomReplaceHTML(editorEl, html);
+		editorEl.scrollTop = scroll.top;
 		if (hadFocus) {
-			moveCaret(textEl, currentPos.begin, currentPos.end);
+			moveEditorCaret(currentPos.begin, currentPos.end);
 		}
 	};
 
@@ -131,26 +129,23 @@
 		if(input.value.length == 0) {
 			resultsEl.innerHTML = "";
 			updateResultsTitle(0)
-			unhighlight();
+			unhighlight(forceText);
 		} else {
 			var userRe = parseRe(input.value);
-			var text = unescape(forceText || textEl.textContent);
+			var text = unescape(forceText || editorEl.textContent);
 			if (userRe) {
 				window.clearTimeout(inProgressTimer);
 				window.clearTimeout(safetyTimer);
 
-				if (worker) killWorker();
-
-				worker = new Worker(blobUrl);
-				worker.onmessage = onWorkerSuccess;
-
+				terminateCurrentWorker();
+				worker = regexWorkerFactory.build(onWorkerSuccess);
 				worker.postMessage({
 					userRe : userRe,
 					text : text
 				});
 
 				inProgressTimer = window.setTimeout(displayInProgressIndicator, 100);
-				safetyTimer = window.setTimeout(onWorkerBlock, 3000);
+				safetyTimer = window.setTimeout(onWorkerTimeout, 3000);
 			}
 		}
 	};
@@ -168,9 +163,9 @@
 		hideMessage();
 	};
 
-	var onWorkerBlock = function () {
+	var onWorkerTimeout = function () {
 		window.clearTimeout(inProgressTimer);
-		killWorker();
+		terminateCurrentWorker();
 		input.classList.remove("in-progress");
 		gotoErrorState("ERROR : Could not process regular expression");
 	};
@@ -196,12 +191,11 @@
 	};
 
 	var encodeCurrentSnippet = function () {
-		var text = unescape(textEl.textContent);
-		var strSnippet = JSON.stringify({
+		var text = unescape(editorEl.textContent);
+		return JSON.stringify({
 			"re" : input.value,
 			"text" : text
 		});
-		return strSnippet;
 	};
 
 	var saveToLocalStorage = function () {
@@ -236,7 +230,7 @@
 		if (isSpecialKey(evt)) {
 			evt.preventDefault();	
 			var caret = getCurrentCaretPos();
-			var	text = textEl.textContent;
+			var	text = editorEl.textContent;
 			if (evt.keyCode == SPECIAL.ENTER) {	
 				text = text.substring(0, caret.begin) + "\n" + text.substring(caret.end);
 				currentPos = {begin : caret.begin+1, end : caret.begin+1};
@@ -265,8 +259,8 @@
 	// 1 : timeout
 	// 2 : store the RE somewhere else
 	input.addEventListener("keyup", function () {refresh()});
-	textEl.addEventListener("keydown", onPreKeydown);
-	textEl.addEventListener("keyup", onPreKeyup);
+	editorEl.addEventListener("keydown", onPreKeydown);
+	editorEl.addEventListener("keyup", onPreKeyup);
 	document.getElementsByClassName("head-logo")[0].addEventListener("click", clear);
 
 	if (window.localStorage.instantReSnapshot) {

@@ -101,6 +101,10 @@ body {
     font-family : Consolas, Monaco, monospace;
 }
 
+#text-editor:focus {
+    outline : none;
+}
+
 #text-editor::selection, #text-editor *::selection{
     background: rgba(200,0,0,0.2);
 }
