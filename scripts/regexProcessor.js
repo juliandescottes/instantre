@@ -16,7 +16,7 @@ window.regexWorker = function () {
 		for (var i = 0 ; i < lines.length ; i++) {
 			endIndex += lines[i].length+1;
 			if (index < endIndex) {
-				return i;
+				return i+1;
 			}
 		}
 	};
@@ -34,7 +34,7 @@ window.regexWorker = function () {
 			html += "<span class='matched-string'>" + matchedString + "</span>";
 		}
 
-		return "<li title='jump to line "+(line+1)+"'>" + html + " (line:" + (line+1) + ")</li>";
+		return "<li title='jump to line "+line+"' onclick='jumpToIndex("+match.index+")'>" + html + " (line:" + line + ")</li>";
 	};
 
 	/*
@@ -48,13 +48,11 @@ window.regexWorker = function () {
 		JOINT_TOKENS = new RegExp(TOKEN_END+TOKEN_BEGIN, "g");
 
 
-	var highlightText = function (text, re, tooManyResults) {
+	var highlightText = function (text, re) {
 		var tokenizedText = text.replace(re, tokenReplacer);
-		var cssClass = tooManyResults ? "editor-match-fast" : "editor-match"
-		if (tooManyResults) {
-			// merge everything ...
-			tokenizedText = tokenizedText.replace(JOINT_TOKENS, "");
-		}
+		// merge consecutive tokens : TOK_BEGIN_A_TOK_END_TOK_BEGIN_B_TOK_END -> TOK_BEGIN_AB_TOK_END
+		tokenizedText = tokenizedText.replace(JOINT_TOKENS, "");
+		var cssClass = "editor-match";
 		return escape(tokenizedText).replace(RE_BEGIN, "<span class='"+cssClass+"'>").replace(RE_END, "</span>");
 	};
 	/**
@@ -78,7 +76,6 @@ window.regexWorker = function () {
 		var lines = text.split("\n");
 		while (match = userRe.exec(text)) {
 			if(safe++>MAX_RESULTS) break;
-			//if (match[0].length == 0) continue;
 			line = getLineForMatch(match, lines);
 			matchMarkup = createMarkupForMatch(match, line);
 			results.push(matchMarkup);
@@ -86,7 +83,7 @@ window.regexWorker = function () {
 		var resultsHTML = "<ul>" + results.join("") + "</ul>";	
 		self.postMessage({
 			resultsHTML : resultsHTML,
-			textHTML : highlightText(text, userRe, results.length >= MAX_RESULTS),
+			textHTML : highlightText(text, userRe),
 			resultsLength : results.length
 		});
 	};

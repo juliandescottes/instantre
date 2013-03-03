@@ -55,6 +55,33 @@ Object.defineProperty(HTMLPreElement.prototype, 'selectionEnd', {
 	configurable: true
 });
 
+function scrollIntoView(t) {
+   if (typeof(t) != 'object') return;
+
+   if (t.getRangeAt) {
+      // we have a Selection object
+      if (t.rangeCount == 0) return;
+      t = t.getRangeAt(0);
+   }
+
+   if (t.cloneRange) {
+      // we have a Range object
+      var r = t.cloneRange();	// do not modify the source range
+      r.collapse(true);		// collapse to start
+      var t = r.startContainer;
+      // if start is an element, then startOffset is the child number
+      // in which the range starts
+      if (t.nodeType == 1) t = t.childNodes[r.startOffset];
+   }
+
+   // if t is not an element node, then we need to skip back until we find the
+   // previous element with which we can call scrollIntoView()
+   o = t;
+   while (o && o.nodeType != 1) o = o.previousSibling;
+   t = o || t.parentNode;
+   if (t) t.scrollIntoView();
+}
+
 HTMLPreElement.prototype.setSelectionRange = function(ss, se) {
 	var range = document.createRange(),
 	    offset = findOffset(this, ss);
@@ -70,6 +97,8 @@ HTMLPreElement.prototype.setSelectionRange = function(ss, se) {
 	var selection = window.getSelection();
 	selection.removeAllRanges();
 	selection.addRange(range);
+
+	scrollIntoView(selection);
 }
 
 function findOffset(root, ss) {

@@ -101,6 +101,10 @@
 		pre.setSelectionRange(begin, typeof end == "undefined" ? begin:end);
 	};
 
+	window.jumpToIndex = function (index) {
+		moveCaret(textEl, index);
+	};
+
 	var killWorker = function () {
 		worker.terminate();
 		worker = null;
