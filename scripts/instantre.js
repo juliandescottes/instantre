@@ -115,10 +115,11 @@
 		var hadFocus = editorHasFocus();
 		var scroll = {top:editorEl.scrollTop};
 		offDomReplaceHTML(editorEl, html);
-		editorEl.scrollTop = scroll.top;
 		if (hadFocus) {
+			editorEl.focus();
 			moveEditorCaret(currentPos.begin, currentPos.end);
 		}
+		editorEl.scrollTop = scroll.top;
 	};
 
 	var safetyTimer, inProgressTimer;
