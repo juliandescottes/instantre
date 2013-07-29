@@ -106,12 +106,11 @@ body {
 }
 
 #text-editor::selection, #text-editor *::selection{
-    background: rgba(200,0,0,0.2);
+    background: rgba(121, 121, 121, 0.7);
 }
 
 .editor-match {
-    color : red;
-    background:rgba(0, 0, 0,0.1)
+    color : rgb(255, 150, 150);
 }
 
 #matches-list {
